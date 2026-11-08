@@ -6,7 +6,8 @@ from vampire import vampire_path
 
 if sys.platform == "win32":
     assert Path(vampire_path).suffix == ".exe", vampire_path
-    assert Path(vampire_path).with_name("cygwin1.dll").is_file()
+    for name in ("cygwin1.dll", "cygiconv-2.dll", "cygintl-8.dll"):
+        assert Path(vampire_path).with_name(name).is_file(), name
 
 version = subprocess.run(
     [vampire_path, "--version"],

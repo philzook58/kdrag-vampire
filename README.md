@@ -15,7 +15,8 @@ subprocess.run([vampire_path, "--version"], check=True)
 ```
 
 Wheels support x86-64 and ARM64 Linux and macOS, and x86-64 Windows.
-Windows wheels bundle the Cygwin runtime; no separate Cygwin installation is needed.
+Windows wheels bundle Cygwin, libiconv, and gettext runtime DLLs; no separate
+Cygwin installation is needed.
 
 ## Release
 
@@ -32,12 +33,13 @@ Linux and macOS builds require Git, CMake, and a C++20 compiler, and fetch the
 pinned upstream source and its dependencies. Windows builds fetch the official
 release binary and verify its SHA-256 checksum. Set `VAMPIRE_BINARY` to package
 an existing binary instead, or `VAMPIRE_WHEEL_TAG` to override the platform tag.
-For a custom Windows build, place `cygwin1.dll` beside `vampire.exe`.
+For a custom Windows build, place its runtime DLLs beside `vampire.exe`.
 
 Vampire is [BSD-3-Clause](https://github.com/vprover/vampire/blob/v5.1.0/LICENCE).
 The executable also includes MIT-licensed MiniSat, CaDiCaL, and Z3, and mini-gmp
 under GPL-2.0-or-later. Windows wheels additionally include the
 [Cygwin runtime](https://cygwin.com/licensing.html) under LGPL-3.0-or-later.
+The libiconv and gettext runtime libraries are under LGPL-2.1-or-later.
 See [COPYING](COPYING) for notices and license texts.
 The corresponding source is the linked upstream tag, including its pinned
 submodules.

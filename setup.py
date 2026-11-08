@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import sysconfig
+import tarfile
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -14,6 +15,26 @@ from setuptools.command.build_py import build_py as _build_py
 VAMPIRE_REF = "v5.1.0"
 VAMPIRE_EXECUTABLE = "vampire.exe" if sys.platform == "win32" else "vampire"
 VAMPIRE_WINDOWS_SHA256 = "b98d0c6b4a42e11c25243ca31b3cbabd1673b437c994263166804b92b715de33"
+VAMPIRE_WINDOWS_DLLS = [
+    (
+        "libiconv/libiconv2/libiconv2-1.17-1.tar.xz",
+        "695679eac95451bdbffb01309aba58104f10734e5998e8a4619e457505d58c00",
+        "cygiconv-2.dll",
+    ),
+    (
+        "gettext/libintl8/libintl8-0.22.5-1.tar.xz",
+        "aa981c2583e187c5c07c75132d714fe3b8a4a81f585e9b5de64f0bf8c8dd211f",
+        "cygintl-8.dll",
+    ),
+]
+
+
+def download_verified(url, target, digest):
+    if not target.exists():
+        urllib.request.urlretrieve(url, target)
+    if hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+        raise RuntimeError(f"Archive checksum mismatch: {target.name}")
+    return target
 
 
 def get_vampire_binary():
@@ -24,17 +45,20 @@ def get_vampire_binary():
             raise RuntimeError("Windows wheels currently require x86-64 Python.")
         source = Path("build/vampire-windows").resolve()
         source.mkdir(parents=True, exist_ok=True)
-        archive = source / "vampire.zip"
-        if not archive.exists():
-            urllib.request.urlretrieve(
-                f"https://github.com/vprover/vampire/releases/download/{VAMPIRE_REF}/vampire-Windows-X64.zip",
-                archive,
-            )
-        if hashlib.sha256(archive.read_bytes()).hexdigest() != VAMPIRE_WINDOWS_SHA256:
-            raise RuntimeError("Vampire Windows archive checksum mismatch.")
+        archive = download_verified(
+            f"https://github.com/vprover/vampire/releases/download/{VAMPIRE_REF}/vampire-Windows-X64.zip",
+            source / "vampire.zip", VAMPIRE_WINDOWS_SHA256,
+        )
         with zipfile.ZipFile(archive) as files:
             for name in ("vampire.exe", "cygwin1.dll"):
                 (source / name).write_bytes(files.read(name))
+        for package, digest, name in VAMPIRE_WINDOWS_DLLS:
+            archive = download_verified(
+                f"https://mirrors.kernel.org/sourceware/cygwin/x86_64/release/{package}",
+                source / Path(package).name, digest,
+            )
+            with tarfile.open(archive) as files:
+                (source / name).write_bytes(files.extractfile(f"usr/bin/{name}").read())
         return source / "vampire.exe"
 
     source = Path("build/vampire-source").resolve()
