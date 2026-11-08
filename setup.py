@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import sysconfig
 from pathlib import Path
 
@@ -8,11 +9,14 @@ from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
 from setuptools.command.build_py import build_py as _build_py
 
 VAMPIRE_REF = "v5.1.0"
+VAMPIRE_EXECUTABLE = "vampire.exe" if sys.platform == "win32" else "vampire"
 
 
 def get_vampire_binary():
     if binary := os.environ.get("VAMPIRE_BINARY"):
         return Path(binary)
+    if sys.platform == "win32":
+        raise RuntimeError("Build Vampire with Cygwin and set VAMPIRE_BINARY to vampire.exe.")
 
     source = Path("build/vampire-source").resolve()
     if not source.exists():
@@ -69,11 +73,14 @@ class build_py(_build_py):
     def run(self):
         super().run()
         binary = get_vampire_binary()
-        for source, name in ((binary, "vampire"), (Path("COPYING"), "COPYING")):
+        files = [(binary, VAMPIRE_EXECUTABLE), (Path("COPYING"), "COPYING")]
+        if sys.platform == "win32":
+            files.extend((dll, dll.name) for dll in binary.parent.glob("*.dll"))
+        for source, name in files:
             target = Path(self.build_lib, "vampire", name)
             self.mkpath(str(target.parent))
             self.copy_file(str(source), str(target))
-        Path(self.build_lib, "vampire", "vampire").chmod(0o755)
+        Path(self.build_lib, "vampire", VAMPIRE_EXECUTABLE).chmod(0o755)
 
 
 class bdist_wheel(_bdist_wheel):

@@ -1,7 +1,12 @@
 import subprocess
+import sys
+from pathlib import Path
 
 from vampire import vampire_path
 
+if sys.platform == "win32":
+    assert Path(vampire_path).suffix == ".exe", vampire_path
+    assert Path(vampire_path).with_name("cygwin1.dll").is_file()
 
 version = subprocess.run(
     [vampire_path, "--version"],

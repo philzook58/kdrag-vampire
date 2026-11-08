@@ -75,10 +75,53 @@ jobs:
           name: wheel-macos-${{ matrix.arch }}
           path: dist/*.whl
 
+  windows:
+    name: Windows x86_64
+    runs-on: windows-2022
+    steps:
+      - run: git config --global core.autocrlf input
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          python-version: "3.12"
+      - uses: cygwin/cygwin-install-action@v6
+        id: cygwin
+        with:
+          packages: gcc-g++,make,cmake,python3
+      - name: Fetch Vampire
+        run: git clone --depth=1 --branch=v5.1.0 --recurse-submodules --shallow-submodules https://github.com/vprover/vampire.git build/vampire-source
+      - name: Build Vampire
+        shell: bash -o igncr -eo pipefail {0}
+        run: |
+          cmake -S build/vampire-source/z3 -B build/vampire-source/z3/build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_EXECUTABLE=OFF -DZ3_BUILD_TEST_EXECUTABLES=OFF -DZ3_BUILD_LIBZ3_SHARED=OFF
+          cmake --build build/vampire-source/z3/build --parallel 4
+          cmake -S build/vampire-source -B build/vampire-source/build -DCMAKE_BUILD_TYPE=Release -DCCACHE_PROGRAM=OFF
+          cmake --build build/vampire-source/build --target vampire --parallel 4
+          strip build/vampire-source/build/vampire.exe
+      - name: Build wheel
+        env:
+          VAMPIRE_BINARY: ${{ github.workspace }}\build\vampire-source\build\vampire.exe
+          VAMPIRE_WHEEL_TAG: win_amd64
+        run: |
+          Copy-Item '${{ steps.cygwin.outputs.root }}/bin/cygwin1.dll' build/vampire-source/build/
+          uv build --wheel
+      - name: Smoke-test wheel without Cygwin on PATH
+        env:
+          CYGWIN_ROOT: ${{ steps.cygwin.outputs.root }}
+        run: |
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike "$env:CYGWIN_ROOT*" }) -join ';'
+          uv venv --python 3.12 .smoke
+          uv pip install --python .smoke/Scripts/python.exe (Get-ChildItem dist/*.whl).FullName
+          .smoke/Scripts/python.exe tests/test_vampire.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-windows-x86_64
+          path: dist/*.whl
+
   publish:
     name: Publish to PyPI
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, macos]
+    needs: [linux, macos, windows]
     runs-on: ubuntu-latest
     environment:
       name: pypi
