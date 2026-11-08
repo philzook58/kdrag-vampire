@@ -28,11 +28,11 @@ Build locally with:
 uv build
 ```
 
-Building requires Git, CMake, and a C++20 compiler. The build fetches the pinned
-upstream release and its dependencies. Set `VAMPIRE_BINARY` to package an existing
-binary instead, or `VAMPIRE_WHEEL_TAG` to override the platform tag.
-On Windows, build Vampire with Cygwin as shown in `wheels.yml`, then set
-`VAMPIRE_BINARY` to `vampire.exe` with `cygwin1.dll` in the same directory.
+Linux and macOS builds require Git, CMake, and a C++20 compiler, and fetch the
+pinned upstream source and its dependencies. Windows builds fetch the official
+release binary and verify its SHA-256 checksum. Set `VAMPIRE_BINARY` to package
+an existing binary instead, or `VAMPIRE_WHEEL_TAG` to override the platform tag.
+For a custom Windows build, place `cygwin1.dll` beside `vampire.exe`.
 
 Vampire is [BSD-3-Clause](https://github.com/vprover/vampire/blob/v5.1.0/LICENCE).
 The executable also includes MIT-licensed MiniSat, CaDiCaL, and Z3, and mini-gmp

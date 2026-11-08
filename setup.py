@@ -1,7 +1,10 @@
+import hashlib
 import os
 import subprocess
 import sys
 import sysconfig
+import urllib.request
+import zipfile
 from pathlib import Path
 
 from setuptools import Distribution, setup
@@ -10,13 +13,29 @@ from setuptools.command.build_py import build_py as _build_py
 
 VAMPIRE_REF = "v5.1.0"
 VAMPIRE_EXECUTABLE = "vampire.exe" if sys.platform == "win32" else "vampire"
+VAMPIRE_WINDOWS_SHA256 = "b98d0c6b4a42e11c25243ca31b3cbabd1673b437c994263166804b92b715de33"
 
 
 def get_vampire_binary():
     if binary := os.environ.get("VAMPIRE_BINARY"):
         return Path(binary)
     if sys.platform == "win32":
-        raise RuntimeError("Build Vampire with Cygwin and set VAMPIRE_BINARY to vampire.exe.")
+        if sysconfig.get_platform() != "win-amd64":
+            raise RuntimeError("Windows wheels currently require x86-64 Python.")
+        source = Path("build/vampire-windows").resolve()
+        source.mkdir(parents=True, exist_ok=True)
+        archive = source / "vampire.zip"
+        if not archive.exists():
+            urllib.request.urlretrieve(
+                f"https://github.com/vprover/vampire/releases/download/{VAMPIRE_REF}/vampire-Windows-X64.zip",
+                archive,
+            )
+        if hashlib.sha256(archive.read_bytes()).hexdigest() != VAMPIRE_WINDOWS_SHA256:
+            raise RuntimeError("Vampire Windows archive checksum mismatch.")
+        with zipfile.ZipFile(archive) as files:
+            for name in ("vampire.exe", "cygwin1.dll"):
+                (source / name).write_bytes(files.read(name))
+        return source / "vampire.exe"
 
     source = Path("build/vampire-source").resolve()
     if not source.exists():
