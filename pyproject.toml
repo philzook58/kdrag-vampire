@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kdrag-vampire"
+version = "5.1.0"
+description = "The Vampire theorem prover, packaged as a platform wheel"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "BSD-3-Clause AND MIT AND GPL-2.0-or-later"
+keywords = ["automated-theorem-proving", "vampire", "tptp"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Homepage = "https://vprover.github.io/"
+Source = "https://github.com/vprover/vampire/tree/v5.1.0"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["vampire"]
+include-package-data = false

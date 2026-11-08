@@ -1,0 +1,95 @@
+name: wheels
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    container: quay.io/pypa/manylinux_2_28_${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        env:
+          VAMPIRE_WHEEL_TAG: manylinux_2_28_${{ matrix.arch }}
+        run: uv build --wheel
+      - name: Inspect and smoke-test wheel
+        run: |
+          uvx auditwheel show dist/*.whl
+          uv venv --python 3.12 .smoke
+          uv pip install --python .smoke/bin/python dist/*.whl
+          .smoke/bin/python tests/test_vampire.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-linux-${{ matrix.arch }}
+          path: dist/*.whl
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-15-intel
+            deployment-target: "10.15"
+            wheel-tag: macosx_10_15_x86_64
+          - arch: arm64
+            runner: macos-15
+            deployment-target: "11.0"
+            wheel-tag: macosx_11_0_arm64
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        env:
+          VAMPIRE_WHEEL_TAG: ${{ matrix.wheel-tag }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment-target }}
+        run: uv build --wheel
+      - name: Smoke-test wheel
+        run: |
+          uv venv --python 3.12 .smoke
+          uv pip install --python .smoke/bin/python dist/*.whl
+          .smoke/bin/python tests/test_vampire.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-macos-${{ matrix.arch }}
+          path: dist/*.whl
+
+  publish:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, macos]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/kdrag-vampire
+    permissions:
+      id-token: write
+    steps:
+      - uses: astral-sh/setup-uv@v10.0.1
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+      - run: uv publish dist/*.whl

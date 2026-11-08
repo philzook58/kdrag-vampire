@@ -1,0 +1,7 @@
+.venv/
+.smoke/
+build/
+dist/
+src/*.egg-info/
+__pycache__/
+

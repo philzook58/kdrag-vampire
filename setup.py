@@ -1,0 +1,93 @@
+import os
+import subprocess
+import sysconfig
+from pathlib import Path
+
+from setuptools import Distribution, setup
+from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
+from setuptools.command.build_py import build_py as _build_py
+
+VAMPIRE_REF = "v5.1.0"
+
+
+def get_vampire_binary():
+    if binary := os.environ.get("VAMPIRE_BINARY"):
+        return Path(binary)
+
+    source = Path("build/vampire-source").resolve()
+    if not source.exists():
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                f"--branch={VAMPIRE_REF}",
+                "https://github.com/vprover/vampire.git",
+                str(source),
+            ],
+            check=True,
+        )
+    subprocess.run(
+        ["git", "submodule", "update", "--init", "--depth=1", "cadical", "viras", "z3"],
+        cwd=source,
+        check=True,
+    )
+    # Statically link Z3 so the wheel needs no separate Z3 installation.
+    subprocess.run(
+        [
+            "cmake", "-S", str(source / "z3"), "-B", str(source / "z3/build"),
+            "-DCMAKE_BUILD_TYPE=Release",
+            "-DZ3_BUILD_EXECUTABLE=OFF",
+            "-DZ3_BUILD_TEST_EXECUTABLES=OFF",
+            "-DZ3_BUILD_LIBZ3_SHARED=OFF",
+        ],
+        check=True,
+    )
+    subprocess.run(["cmake", "--build", str(source / "z3/build"), "--parallel", "4"], check=True)
+    subprocess.run(
+        [
+            "cmake", "-S", str(source), "-B", str(source / "build"),
+            "-DCMAKE_BUILD_TYPE=Release", "-DCCACHE_PROGRAM=OFF",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["cmake", "--build", str(source / "build"), "--target", "vampire", "--parallel", "4"],
+        check=True,
+    )
+    binary = source / "build/vampire"
+    subprocess.run(["strip", str(binary)], check=True)
+    return binary
+
+
+class BinaryDistribution(Distribution):
+    def has_ext_modules(self):
+        return True
+
+
+class build_py(_build_py):
+    def run(self):
+        super().run()
+        binary = get_vampire_binary()
+        for source, name in ((binary, "vampire"), (Path("COPYING"), "COPYING")):
+            target = Path(self.build_lib, "vampire", name)
+            self.mkpath(str(target.parent))
+            self.copy_file(str(source), str(target))
+        Path(self.build_lib, "vampire", "vampire").chmod(0o755)
+
+
+class bdist_wheel(_bdist_wheel):
+    def finalize_options(self):
+        super().finalize_options()
+        self.root_is_pure = False
+
+    def get_tag(self):
+        platform = os.environ.get("VAMPIRE_WHEEL_TAG")
+        platform = platform or sysconfig.get_platform().replace("-", "_").replace(".", "_")
+        return "py3", "none", platform
+
+
+setup(
+    distclass=BinaryDistribution,
+    cmdclass={"build_py": build_py, "bdist_wheel": bdist_wheel},
+)
