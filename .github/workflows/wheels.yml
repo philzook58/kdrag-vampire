@@ -93,9 +93,9 @@ jobs:
       - name: Build Vampire
         shell: bash -o igncr -eo pipefail {0}
         run: |
-          cmake -S build/vampire-source/z3 -B build/vampire-source/z3/build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_EXECUTABLE=OFF -DZ3_BUILD_TEST_EXECUTABLES=OFF -DZ3_BUILD_LIBZ3_SHARED=OFF
+          cmake -S build/vampire-source/z3 -B build/vampire-source/z3/build -DCMAKE_MAKE_PROGRAM=/usr/bin/make -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_EXECUTABLE=OFF -DZ3_BUILD_TEST_EXECUTABLES=OFF -DZ3_BUILD_LIBZ3_SHARED=OFF
           cmake --build build/vampire-source/z3/build --parallel 4
-          cmake -S build/vampire-source -B build/vampire-source/build -DCMAKE_BUILD_TYPE=Release -DCCACHE_PROGRAM=OFF
+          cmake -S build/vampire-source -B build/vampire-source/build -DCMAKE_MAKE_PROGRAM=/usr/bin/make -DCMAKE_BUILD_TYPE=Release -DCCACHE_PROGRAM=OFF
           cmake --build build/vampire-source/build --target vampire --parallel 4
           strip build/vampire-source/build/vampire.exe
       - name: Build wheel
